@@ -1,4 +1,4 @@
-# indoor-co2-forecast
+# home-co2-forecast
 
 A set of notebooks that:
 - extract a history of CO2 sensor readings,
