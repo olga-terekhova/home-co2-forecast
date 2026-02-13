@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  home-co2-forecast:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: home-co2-forecast
+    volumes:
+      - /path/on/host/homeassistant:/config
+      - ./app:/app
+      - ./exports:/exports
+    restart: unless-stopped
+    # Keep container running for interactive work
+    command: tail -f /dev/null
+    environment:
+      - TZ=UTC
