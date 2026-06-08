@@ -22,11 +22,11 @@ A set of notebooks that:
 ## DAG for running the notebooks
 
 ```mermaid
-flowchart LR
-    ExtractHomeAssistant.ipynb --> PrepareTimeSeries.ipynb
-    PrepareTimeSeries.ipynb --> ExploratoryAnalysis.ipynb
-    PrepareTimeSeries.ipynb --> ForecastML.ipynb
-    ForecastML.ipynb --> TrainTestModels01.ipynb
-    TrainTestModels01.ipynb --> ReadExperimentData.ipynb
-    ReadExperimentData.ipynb --> PredictValue.ipynb
+flowchart LR;
+    ExtractHomeAssistant.ipynb --> PrepareTimeSeries.ipynb;
+    PrepareTimeSeries.ipynb --> ExploratoryAnalysis.ipynb;
+    PrepareTimeSeries.ipynb --> ForecastML.ipynb;
+    ForecastML.ipynb --> TrainTestModels01.ipynb;
+    TrainTestModels01.ipynb --> ReadExperimentData.ipynb;
+    ReadExperimentData.ipynb --> PredictValue.ipynb;
 ```
