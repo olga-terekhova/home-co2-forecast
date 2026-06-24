@@ -10,23 +10,24 @@ A set of notebooks that:
 ## List of the notebooks
 
 | Notebook | Purpose |
-|---------|---------|
-| [ExtractHomeAssistant.ipynb](notebooks/ExtractHomeAssistant.ipynb) | Ingest data from source |
-| [PrepareTimeSeries.ipynb](notebooks/PrepareTimeSeries.ipynb) | Preprocess data|
-| [ExploratoryAnalysis.ipynb](notebooks/ExploratoryAnalysis.ipynb) | Perform exploratory data analysis |
-| [ForecastML.ipynb](notebooks/ForecastML.ipynb) | Engineer features |
-| [TrainTestModels01.ipynb](notebooks/TrainTestModels01.ipynb) | Run and log experiments |
-| [ReadExperimentData.ipynb](notebooks/ReadExperimentData.ipynb) | Read logs and select the best run |
-| [PredictValue.ipynb](notebooks/PredictValue.ipynb) | Read input data and fitted model, predict target value |
+| --- | --- |
+| [`train_01_ingest_data.ipynb`](notebooks/train_01_ingest_data.ipynb) | Ingest data from source |
+| [`train_02_preprocess_data.ipynb`](notebooks/train_02_preprocess_data.ipynb) | Preprocess data |
+| [`train_03_explore_data.ipynb`](notebooks/train_03_explore_data.ipynb) | Perform exploratory data analysis |
+| [`train_04_engineer_features.ipynb`](notebooks/train_04_engineer_features.ipynb) | Engineer features |
+| [`train_05_train_and_evaluate.ipynb`](notebooks/train_05_train_and_evaluate.ipynb) | Run and log experiments |
+| [`train_06_select_best_model.ipynb`](notebooks/train_06_select_best_model.ipynb) | Read logs and select the best run |
+| [`serve_02_predict.ipynb`](notebooks/serve_02_predict.ipynb) | Read input data and fitted model, predict target value |
 
 ## DAG for running the notebooks
 
 ```mermaid
 flowchart LR;
-    ExtractHomeAssistant.ipynb --> PrepareTimeSeries.ipynb;
-    PrepareTimeSeries.ipynb --> ExploratoryAnalysis.ipynb;
-    PrepareTimeSeries.ipynb --> ForecastML.ipynb;
-    ForecastML.ipynb --> TrainTestModels01.ipynb;
-    TrainTestModels01.ipynb --> ReadExperimentData.ipynb;
-    ReadExperimentData.ipynb --> PredictValue.ipynb;
+    train_01_ingest_data.ipynb --> train_02_preprocess_data.ipynb;
+    train_02_preprocess_data.ipynb --> train_03_explore_data.ipynb;
+    train_02_preprocess_data.ipynb --> train_04_engineer_features.ipynb;
+    train_04_engineer_features.ipynb --> train_05_train_and_evaluate.ipynb;
+    train_05_train_and_evaluate.ipynb --> train_06_select_best_model.ipynb;
+    train_06_select_best_model.ipynb;
+    serve_02_predict.ipynb;
 ```
