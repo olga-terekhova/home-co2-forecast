@@ -17,6 +17,7 @@ A set of notebooks that:
 | [`train_04_engineer_features.ipynb`](notebooks/train_04_engineer_features.ipynb) | Engineer features |
 | [`train_05_train_and_evaluate.ipynb`](notebooks/train_05_train_and_evaluate.ipynb) | Run and log experiments |
 | [`train_06_select_best_model.ipynb`](notebooks/train_06_select_best_model.ipynb) | Read logs and select the best run |
+| [`train_07_finalize_model.ipynb`](notebooks/train_07_finalize_model.ipynb) | Retrain the selected model on the full dataset, save the final model |
 | [`serve_02_predict.ipynb`](notebooks/serve_02_predict.ipynb) | Read input data and fitted model, predict target value |
 
 ## DAG for running the notebooks
@@ -28,6 +29,6 @@ flowchart LR;
     train_02_preprocess_data.ipynb --> train_04_engineer_features.ipynb;
     train_04_engineer_features.ipynb --> train_05_train_and_evaluate.ipynb;
     train_05_train_and_evaluate.ipynb --> train_06_select_best_model.ipynb;
-    train_06_select_best_model.ipynb;
+    train_06_select_best_model.ipynb --> train_07_finalize_model.ipynb;
     serve_02_predict.ipynb;
 ```
