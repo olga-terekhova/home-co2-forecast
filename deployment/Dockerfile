@@ -1,20 +1,24 @@
-# Use Python Alpine for a lightweight image
-FROM python:3.11-alpine
+# Lightweight image for a single-shot HA history fetch.
+# Expected to be invoked periodically by an external scheduler
+# (e.g. host cron running "docker run --rm ..."), not to loop internally.
 
-# Set working directory
+FROM python:3.12-slim
+
 WORKDIR /app
 
-# Install build dependencies needed for Pandas
-RUN apk add --no-cache --virtual .build-deps \
-    gcc \
-    g++ \
-    musl-dev \
-    linux-headers \
-    && pip install --no-cache-dir pandas \
-    && apk del .build-deps
+# requests' dependencies (urllib3, certifi, idna, charset-normalizer) are
+# pure Python / ship manylinux wheels, so no build-essential / gcc is
+# needed here - keeps the image small.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy your application files (if any)
-# COPY . .
+COPY ha_history.py .
 
-# Default command
-CMD ["python"]
+# Run as a non-root user.
+RUN useradd --create-home --shell /usr/sbin/nologin appuser
+USER appuser
+
+# Single-shot execution: the script runs once and exits.
+# Env vars HA_HOSTNAME, HA_TOKEN, HA_ENTITY_ID must be supplied at
+# "docker run" time (e.g. via --env / --env-file).
+CMD ["python", "ha_history.py"]
