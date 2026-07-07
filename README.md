@@ -5,6 +5,7 @@ A set of notebooks that:
 - use several ML algorithms to train on the dataset in order to predict a future value,
 - log the runs in mlflow,
 - choose the feature set, model, and model parameters with the best predicting power,
+- retrain the winner model on the whole history,
 - predict a target value using an input dataset and the fitted model.  
 
 ## List of the notebooks
