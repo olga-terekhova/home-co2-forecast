@@ -2,7 +2,7 @@
 
 Single-shot script that queries Home Assistant's `/api/history/period`
 endpoint for one entity's last 60 minutes of readings, writes them to
-`ha_history.csv`, and (when imported rather than run directly) returns them
+`recent_co2.csv`, and (when imported rather than run directly) returns them
 as a list of `{"value": ..., "timestamp": ...}` dicts for direct use by an
 ML pipeline.
 
@@ -19,7 +19,7 @@ pip install -r requirements.txt
 export HA_HOSTNAME=ha.example.com
 export HA_TOKEN=xxxx
 export HA_ENTITY_ID=sensor.i_9psl_carbon_dioxide
-python ha_history.py
+python predict_co2.py
 ```
 
 ## Run in Docker via docker compose (single invocation, meant for an external scheduler)
@@ -28,12 +28,12 @@ python ha_history.py
 cp .env.example .env
 # edit .env with real values
 
-docker compose run --rm ha-history
+docker compose run --rm predict-co2
 ```
 
 This is single-shot by design (`restart: "no"`, no `docker compose up -d`
 usage) - an external scheduler (cron, host-level scheduler, etc.) is
-expected to trigger `docker compose run --rm ha-history` on its own
+expected to trigger `docker compose run --rm predict-co2` on its own
 interval.
 
 `.env` is picked up automatically by `docker compose` and substituted into
@@ -41,28 +41,28 @@ interval.
 `.env.example` is meant to be checked in.
 
 The compose file mounts `./out` on the host to `/app/out` in the
-container and sets `HA_OUTPUT_PATH=/app/out/ha_history.csv`, so the CSV
+container and sets `HA_OUTPUT_PATH=/app/out/predict_co2.csv`, so the CSV
 persists on the host after the container exits.
 
 ### Run in plain Docker (without compose)
 
 ```
-docker build -t ha-history .
+docker build -t predict-co2 .
 docker run --rm \
   -e HA_HOSTNAME=ha.example.com \
   -e HA_TOKEN=xxxx \
   -e HA_ENTITY_ID=sensor.i_9psl_carbon_dioxide \
-  -e HA_OUTPUT_PATH=/app/out/ha_history.csv \
+  -e HA_OUTPUT_PATH=/app/out/predict_co2.csv \
   -v "$(pwd)/out:/app/out" \
-  ha-history
+  predict-co2
 ```
 
 ## Use as a library, in-memory
 
 ```python
-from ha_history import fetch_ha_history
+from predict_co2 import fetch_predict_co2
 
-readings = fetch_ha_history(hostname, token, entity_id, minutes=60)
+readings = fetch_predict_co2(hostname, token, entity_id, minutes=60)
 if readings is None:
     # fetch failed, error already logged - skip this cycle
     ...

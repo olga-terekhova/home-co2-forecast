@@ -12,7 +12,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ha_history.py .
+COPY predict_co2.py .
 
 # Run as a non-root user.
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
@@ -21,4 +21,4 @@ USER appuser
 # Single-shot execution: the script runs once and exits.
 # Env vars HA_HOSTNAME, HA_TOKEN, HA_ENTITY_ID must be supplied at
 # "docker run" time (e.g. via --env / --env-file).
-CMD ["python", "ha_history.py"]
+CMD ["python", "predict_co2.py"]

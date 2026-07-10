@@ -46,7 +46,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("ha_history")
 
-DEFAULT_HISTORY_MINUTES = 60
+DEFAULT_HISTORY_MINUTES = 90
 DEFAULT_CSV_PATH = "ha_values.csv"
 REQUEST_TIMEOUT_SECONDS = 30
 

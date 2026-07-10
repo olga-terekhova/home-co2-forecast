@@ -1,17 +1,17 @@
 # Single-shot service, triggered by an external scheduler via:
-#   docker compose run --rm ha-history
+#   docker compose run --rm predict-co2
 #
 # Not meant to be started with "docker compose up -d" - there is no
 # internal loop, and restart is intentionally disabled.
 
 services:
-  ha-history:
+  predict-co2:
     build: deployment/.
     environment:
       - HA_HOSTNAME=${HA_HOSTNAME}
       - HA_TOKEN=${HA_TOKEN}
       - HA_ENTITY_ID=${HA_ENTITY_ID}
-      - HA_OUTPUT_PATH=/app/out/ha_history.csv
+      - HA_OUTPUT_PATH=/app/out/recent_co2.csv
     volumes:
       - ./out:/app/out
     restart: "no"
