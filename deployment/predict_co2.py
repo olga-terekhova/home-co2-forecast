@@ -75,7 +75,7 @@ def build_start_time(minutes):
     return start.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def fetch_ha_history(hostname, token, entity_id, minutes=DEFAULT_HISTORY_MINUTES):
+def fetch_recent_co2(hostname, token, entity_id, minutes=DEFAULT_HISTORY_MINUTES):
     """Fetch history for a single entity from the HA REST API.
 
     Returns a list of dicts with keys "value" and "timestamp", sorted
@@ -153,7 +153,7 @@ def main():
     if not hostname or not token or not entity_id:
         sys.exit(1)
 
-    readings = fetch_ha_history(hostname, token, entity_id, DEFAULT_HISTORY_MINUTES)
+    readings = fetch_recent_co2(hostname, token, entity_id, DEFAULT_HISTORY_MINUTES)
 
     if readings is None:
         # Fetch failed; error already logged. Exit non-zero so an external
