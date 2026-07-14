@@ -11,8 +11,8 @@ Expects these environment variables to be set:
     HA_ENTITY_ID - target entity id (e.g. sensor.i_9psl_carbon_dioxide)
 
 Optional environment variable:
-    HA_OUTPUT_PATH - path to write the CSV to (default: ha_history.csv in
-                      the current working directory). Useful for pointing
+    HA_OUTPUT_PATH - path to write the CSV to (default: last_co2_values.csv
+                      in the current working directory). Useful for pointing
                       at a mounted volume path when run in Docker.
 
 Behavior notes (carried over from the validated PowerShell version):
@@ -44,10 +44,12 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
-log = logging.getLogger("ha_history")
+log = logging.getLogger("predict_co2")
 
-DEFAULT_HISTORY_MINUTES = 90
-DEFAULT_CSV_PATH = "ha_values.csv"
+DEFAULT_WINDOW_MINUTES = 60
+DEFAULT_LONG_WINDOW_MINUTES = 90
+
+DEFAULT_CSV_PATH = "last_co2_values.csv"
 REQUEST_TIMEOUT_SECONDS = 30
 
 # Optional: override where the CSV is written (e.g. a mounted volume path
@@ -65,32 +67,28 @@ def get_required_env(name):
     return value
 
 
-def build_start_time(minutes):
-    """Return a UTC ISO 8601 timestamp string with a literal Z suffix,
-    representing 'now minus minutes'. Uses a timezone-aware datetime to
-    avoid the local-offset bug seen with naive DateTimes in the PowerShell
-    version.
-    """
-    start = datetime.now(timezone.utc) - timedelta(minutes=minutes)
-    return start.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
-def fetch_recent_co2(hostname, token, entity_id, minutes=DEFAULT_HISTORY_MINUTES):
+def fetch_recent_co2(hostname, token, entity_id, long_window_start):
     """Fetch history for a single entity from the HA REST API.
 
     Returns a list of dicts with keys "value" and "timestamp", sorted
     newest-first, ready to be handed directly to an ML model. Returns
+    an empty list when the request succeeds but yields no rows, and
     None on any failure (network error, non-200 response, unexpected
-    payload shape, empty result). Errors are logged; callers should treat
-    None as "skip this cycle."
+    payload shape). Errors are logged; callers should treat None as
+    "skip this cycle."
     """
-    start_time = build_start_time(minutes)
+
+    # Return a UTC ISO 8601 timestamp string with a literal Z suffix 
+    # Use a timezone-aware datetime
+    start_time = long_window_start.strftime("%Y-%m-%dT%H:%M:%SZ")
+
     url = f"https://{hostname}/api/history/period/{start_time}"
     # NOTE: requests silently drops params whose value is None, so
     # minimal_response cannot be passed via the params dict as a bare
     # flag - it would just be omitted from the request. It is appended
-    # to the URL manually instead, matching the validated PowerShell
-    # request shape (?filter_entity_id=...&minimal_response with no
+    # to the URL manually instead, matching the validated 
+    # request (?filter_entity_id=...&minimal_response with no
     # trailing "=").
     params = {
         "filter_entity_id": entity_id,
@@ -105,6 +103,7 @@ def fetch_recent_co2(hostname, token, entity_id, minutes=DEFAULT_HISTORY_MINUTES
             "GET", url, headers=headers, params=params
         ).prepare()
         prepared.url = f"{prepared.url}&minimal_response"
+        log.info(f"Requesting {prepared.url}")
         session = requests.Session()
         response = session.send(prepared, timeout=REQUEST_TIMEOUT_SECONDS)
         response.raise_for_status()
@@ -153,7 +152,11 @@ def main():
     if not hostname or not token or not entity_id:
         sys.exit(1)
 
-    readings = fetch_recent_co2(hostname, token, entity_id, DEFAULT_HISTORY_MINUTES)
+    window_end = datetime.now(timezone.utc).replace(microsecond=0)
+    window_start = window_end - timedelta(minutes=DEFAULT_WINDOW_MINUTES)
+    long_window_start = window_end - timedelta(minutes=DEFAULT_LONG_WINDOW_MINUTES)
+
+    readings = fetch_recent_co2(hostname, token, entity_id, long_window_start)
 
     if readings is None:
         # Fetch failed; error already logged. Exit non-zero so an external
