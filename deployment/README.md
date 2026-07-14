@@ -2,7 +2,7 @@
 
 Single-shot script that queries Home Assistant's `/api/history/period`
 endpoint for one entity's last 60 minutes of readings, writes them to
-`recent_co2.csv`, and (when imported rather than run directly) returns them
+`recent_co2_values.csv`, and (when imported rather than run directly) returns them
 as a list of `{"value": ..., "timestamp": ...}` dicts for direct use by an
 ML pipeline.
 
