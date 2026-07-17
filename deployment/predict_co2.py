@@ -153,7 +153,7 @@ def main():
     if not hostname or not token or not entity_id:
         sys.exit(1)
 
-    window_end = datetime.now(timezone.utc).replace(microsecond=0)
+    window_end = datetime.now(timezone.utc).replace(microsecond=0, second=0)
     window_start = window_end - timedelta(minutes=DEFAULT_WINDOW_MINUTES)
     long_window_start = window_end - timedelta(minutes=DEFAULT_LONG_WINDOW_MINUTES)
 
