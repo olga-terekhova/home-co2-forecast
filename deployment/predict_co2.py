@@ -72,7 +72,8 @@ def fetch_recent_co2(hostname, token, entity_id, long_window_start):
     """Fetch history for a single entity from the HA REST API.
 
     Returns a list of dicts with keys "value" and "timestamp", sorted
-    newest-first, ready to be handed directly to an ML model. Returns
+    oldest-first (chronological), ready to be handed directly to an ML
+    pipeline. Returns
     an empty list when the request succeeds but yields no rows, and
     None on any failure (network error, non-200 response, unexpected
     payload shape). Errors are logged; callers should treat None as
@@ -132,7 +133,7 @@ def fetch_recent_co2(hostname, token, entity_id, long_window_start):
             continue
         readings.append({"value": state, "timestamp": timestamp})
 
-    readings.sort(key=lambda r: r["timestamp"], reverse=True)
+    readings.sort(key=lambda r: r["timestamp"])
     return readings
 
 
