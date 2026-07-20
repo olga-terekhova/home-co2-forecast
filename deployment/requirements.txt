@@ -1,2 +1,4 @@
 requests>=2.31,<3
-pandas
+pandas==2.2.2
+numpy==2.0.2
+scikit-learn==1.6.1
