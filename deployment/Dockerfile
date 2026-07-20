@@ -1,4 +1,4 @@
-# Lightweight image for a single-shot HA history fetch.
+# Image for a single-shot HA fetch, feature build, and CO2 prediction.
 # Expected to be invoked periodically by an external scheduler
 # (e.g. host cron running "docker run --rm ..."), not to loop internally.
 
@@ -6,14 +6,15 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# requests' dependencies (urllib3, certifi, idna, charset-normalizer) are
-# pure Python / ship manylinux wheels, so no build-essential / gcc is
-# needed here - keeps the image small.
+# NOTE: pandas/numpy/scikit-learn (needed by process.py) ship manylinux
+# wheels for this base image, so build-essential/gcc still is not
+# needed - but the image is no longer as lightweight as when it only
+# did the HA fetch (requests' pure-Python dependency set).
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ingest.py predict_co2.py .
-# Add further sibling modules here as they're introduced (e.g. preprocess.py).
+COPY ingest.py predict_co2.py process.py model-regressor.pkl .
+# Add further sibling modules here as they're introduced.
 
 # Run as a non-root user.
 RUN useradd --create-home --shell /usr/sbin/nologin appuser

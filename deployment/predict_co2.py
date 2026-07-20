@@ -21,6 +21,11 @@ Exit codes:
     2 - fetch succeeded but the prediction window could not be built
         (stale latest reading, an excessive gap, or no numeric readings
         left after filtering); see ingest.build_prediction_window
+    3 - window built and CSV written, but the prediction stage failed:
+        model file missing, feature row had NaNs (should be
+        unreachable given the window checks above, but kept as a
+        safety net), or a feature_names mismatch against the model;
+        see process.run_prediction
 """
 
 import csv
@@ -30,6 +35,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 import ingest
+import process
 
 logging.basicConfig(
     level=logging.INFO,
@@ -94,6 +100,25 @@ def main():
 
     write_csv(window_readings, CSV_OUTPUT_PATH)
     log.info("Saved %d rows to %s", len(window_readings), CSV_OUTPUT_PATH)
+
+    try:
+        value, based_on = process.run_prediction(
+            CSV_OUTPUT_PATH, process.MODEL_PATH, process.PREDICTION_OUTPUT_PATH
+        )
+    except FileNotFoundError as exc:
+        log.error("%s", exc)
+        sys.exit(3)
+    except process.PredictionError as exc:
+        log.error("%s", exc)
+        sys.exit(3)
+
+    log.info(
+        "Predicted %.2f ppm for %s (based on %s); wrote to %s",
+        value,
+        based_on + timedelta(minutes=process.HORIZON_MINUTES),
+        based_on,
+        process.PREDICTION_OUTPUT_PATH,
+    )
 
 
 if __name__ == "__main__":
