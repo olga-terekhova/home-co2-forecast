@@ -12,7 +12,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY predict_co2.py .
+COPY ingest.py predict_co2.py .
+# Add further sibling modules here as they're introduced (e.g. preprocess.py).
 
 # Run as a non-root user.
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
