@@ -6,7 +6,15 @@ A set of notebooks that:
 - log the runs in mlflow,
 - choose the feature set, model, and model parameters with the best predicting power,
 - retrain the winner model on the whole history,
-- predict a target value using an input dataset and the fitted model.  
+- predict a target value using an input dataset and the fitted model.
+
+Training happens in the notebooks below. Serving (the actual periodic
+prediction) runs as plain Python scripts in `deployment/` - see
+"Deployment (serving)" below. The `serve_01`/`serve_02` notebooks were
+the original design for serving and remain useful as a reference (and
+for ad-hoc manual runs against a Colab-mounted Drive), but the
+`deployment/` scripts are what actually runs in production; they do
+not depend on Colab or Drive.
 
 ## List of the notebooks
 
@@ -35,3 +43,31 @@ flowchart LR;
     train_07_finalize_model.ipynb --> serve_02_predict.ipynb;
     serve_01_engineer_features.ipynb --> serve_02_predict.ipynb;
 ```
+
+## Deployment (serving)
+
+`train_07_finalize_model.ipynb` saves `model-regressor.pkl` to Drive.
+That file must be copied into `deployment/` by hand before building the
+image.
+
+| Script | Purpose |
+| --- | --- |
+| [`deployment/ingest.py`](deployment/ingest.py) | Fetch recent readings from the Home Assistant REST API; validate staleness and gaps; build the 61-row prediction window (a port of the design behind `serve_01`'s "assume the last 60 minutes have been procured" starting point, plus the staleness/gap checks it did not have) |
+| [`deployment/process.py`](deployment/process.py) | Read the readings CSV; engineer features (a port of `serve_01`); load `model-regressor.pkl` and predict (a port of what `serve_02` is documented to do); write the prediction to a file |
+| [`deployment/predict_co2.py`](deployment/predict_co2.py) | Orchestrates one serving cycle: calls `ingest.py`, writes the readings CSV, calls `process.py`, and is the container's entrypoint |
+
+```mermaid
+flowchart LR;
+    HA[Home Assistant REST API] --> ingest.py;
+    ingest.py -- last_co2_values.csv --> process.py;
+    model[model-regressor.pkl] --> process.py;
+    process.py -- predicted_co2.json --> out[./out];
+    predict_co2.py -.orchestrates.-> ingest.py;
+    predict_co2.py -.orchestrates.-> process.py;
+```
+
+Posting the predicted value back into Home Assistant will be implemented.
+
+Run with `docker compose run --rm predict-co2` (see
+`docker-compose.yml`); this is a single-shot invocation meant to be
+triggered by an external scheduler, not a long-running service.
