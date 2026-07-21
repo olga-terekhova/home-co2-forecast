@@ -48,13 +48,15 @@ flowchart LR;
 
 `train_07_finalize_model.ipynb` saves `model-regressor.pkl` to Drive.
 That file must be copied into `deployment/` by hand before building the
-image.
+image (see PROJECT.md's "Current state" for the file's contents and
+"Open issues" for the fact that this copy step is still manual).
 
 | Script | Purpose |
 | --- | --- |
-| [`deployment/ingest.py`](deployment/ingest.py) | Fetch recent readings from the Home Assistant REST API; validate staleness and gaps; build the 61-row prediction window (a port of the design behind `serve_01`'s "assume the last 60 minutes have been procured" starting point, plus the staleness/gap checks it did not have) |
+| [`deployment/ingest.py`](deployment/ingest.py) | Fetch recent readings for `HA_INPUT_ENTITY_ID` from the Home Assistant REST API; validate staleness and gaps; build the 61-row prediction window (a port of the design behind `serve_01`'s "assume the last 60 minutes have been procured" starting point, plus the staleness/gap checks it did not have) |
 | [`deployment/process.py`](deployment/process.py) | Read the readings CSV; engineer features (a port of `serve_01`); load `model-regressor.pkl` and predict (a port of what `serve_02` is documented to do); write the prediction to a file |
-| [`deployment/predict_co2.py`](deployment/predict_co2.py) | Orchestrates one serving cycle: calls `ingest.py`, writes the readings CSV, calls `process.py`, and is the container's entrypoint |
+| [`deployment/update.py`](deployment/update.py) | Push the predicted value (or "unknown", on any failure path) into Home Assistant as the state of `HA_OUTPUT_ENTITY_ID`, creating the entity on first use |
+| [`deployment/predict_co2.py`](deployment/predict_co2.py) | Orchestrates one serving cycle: calls `ingest.py`, writes the readings CSV, calls `process.py`, then `update.py`; is the container's entrypoint |
 
 ```mermaid
 flowchart LR;
@@ -62,11 +64,17 @@ flowchart LR;
     ingest.py -- last_co2_values.csv --> process.py;
     model[model-regressor.pkl] --> process.py;
     process.py -- predicted_co2.json --> out[./out];
+    process.py --> update.py;
+    update.py -- predicted value or unknown --> HA;
     predict_co2.py -.orchestrates.-> ingest.py;
     predict_co2.py -.orchestrates.-> process.py;
+    predict_co2.py -.orchestrates.-> update.py;
 ```
 
-Posting the predicted value back into Home Assistant will be implemented.
+The loop is closed: `ingest.py` reads `HA_INPUT_ENTITY_ID` and `update.py`
+writes `HA_OUTPUT_ENTITY_ID` - typically two different entities (the real
+CO2 sensor vs. a synthetic "predicted CO2" sensor). The HA long-lived
+token needs both history-read and states-write access as a result.
 
 Run with `docker compose run --rm predict-co2` (see
 `docker-compose.yml`); this is a single-shot invocation meant to be

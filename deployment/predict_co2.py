@@ -2,13 +2,18 @@
 """
 Orchestrates a single serving cycle: fetch recent CO2 readings for one
 Home Assistant entity (ingest.fetch_recent_co2), validate and prepare
-the prediction window (ingest.build_prediction_window), and write the
-result to CSV for the downstream serve_01/serve_02 notebooks to read.
+the prediction window (ingest.build_prediction_window), write the CSV,
+engineer features and predict (process.run_prediction), and push the
+result back into Home Assistant as a sensor entity (update.py). On
+every exit path except a missing/invalid env var, an "unknown" or the
+predicted value is pushed to HA_OUTPUT_ENTITY_ID so it reflects the
+current state rather than silently going stale.
 
 Expects these environment variables to be set:
     HA_HOSTNAME  - hostname only, no scheme, no port (e.g. ha.example.com)
     HA_TOKEN     - Home Assistant long-lived access token
-    HA_ENTITY_ID - target entity id (e.g. sensor.i_9psl_carbon_dioxide)
+    HA_INPUT_ENTITY_ID - input entity id (e.g. sensor.i_9psl_carbon_dioxide)
+    HA_OUTPUT_ENTITY_ID - output entity id (e.g. sensor.co2_predicted_10min )
 
 Optional environment variable:
     HA_OUTPUT_PATH - path to write the CSV to (default: last_co2_values.csv
@@ -26,6 +31,10 @@ Exit codes:
         unreachable given the window checks above, but kept as a
         safety net), or a feature_names mismatch against the model;
         see process.run_prediction
+    4 - everything up to and including the prediction succeeded, but
+        pushing the result (or "unknown", on an earlier failure path)
+        back into Home Assistant failed - e.g. HA unreachable, bad
+        token, or a non-2xx response; see update.push_prediction_to_ha
 """
 
 import csv
@@ -34,8 +43,11 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+import requests
+
 import ingest
 import process
+import update
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,6 +62,9 @@ DEFAULT_CSV_PATH = "last_co2_values.csv"
 # directory if not set.
 CSV_OUTPUT_PATH = os.environ.get("HA_OUTPUT_PATH", DEFAULT_CSV_PATH)
 
+OUTPUT_UNIT = "ppm"
+OUTPUT_FRIENDLY_NAME = "CO2 Predicted (10 min)"
+
 
 def write_csv(readings, output_path):
     """Write readings (list of dicts with value/timestamp keys) to CSV."""
@@ -59,27 +74,60 @@ def write_csv(readings, output_path):
         writer.writerows(readings)
 
 
+def push_status(hostname, token, entity_id, value):
+    """Push value to HA_OUTPUT_ENTITY_ID, logging (not raising) on failure.
+
+    A network error or non-2xx response from HA must not crash the
+    script - that would replace whatever exit code/log message the
+    caller was about to produce with an opaque traceback. Returns True
+    on success, False on failure (already logged); callers on the
+    early-exit paths can ignore a False return (the original failure
+    already has its own exit code), but the success path below treats
+    a False return as its own failure (exit code 4).
+    """
+    try:
+        update.push_prediction_to_ha(
+            hostname=hostname,
+            token=token,
+            entity_id=entity_id,
+            value=value,
+            unit=OUTPUT_UNIT,
+            friendly_name=OUTPUT_FRIENDLY_NAME,
+        )
+        return True
+    except requests.exceptions.RequestException as exc:
+        log.error(
+            "Failed to push %r to Home Assistant entity %s: %s", value, entity_id, exc
+        )
+        return False
+
+
 def main():
     hostname = ingest.get_required_env("HA_HOSTNAME")
     token = ingest.get_required_env("HA_TOKEN")
-    entity_id = ingest.get_required_env("HA_ENTITY_ID")
+    input_entity_id = ingest.get_required_env("HA_INPUT_ENTITY_ID")
+    output_entity_id = ingest.get_required_env("HA_OUTPUT_ENTITY_ID")
 
-    if not hostname or not token or not entity_id:
+    if not hostname or not token or not input_entity_id or not output_entity_id:
         sys.exit(1)
 
     now = datetime.now(timezone.utc)
     long_window_start = now - timedelta(minutes=ingest.DEFAULT_LONG_WINDOW_MINUTES)
 
-    readings = ingest.fetch_recent_co2(hostname, token, entity_id, long_window_start)
+    readings = ingest.fetch_recent_co2(hostname, token, input_entity_id, long_window_start)
 
     if readings is None:
         # Fetch failed; error already logged. Exit non-zero so an external
         # scheduler can see the cycle failed, but do not retry here.
+        # A failed push here is logged but does not change the exit
+        # code below - the fetch failure is the primary problem.
+        push_status(hostname, token, output_entity_id, "unknown")
         sys.exit(1)
 
     if not readings:
         # Request succeeded but returned no rows; not an error condition.
-        log.info("No rows to write for entity: %s", entity_id)
+        log.info("No rows to write for entity: %s", input_entity_id)
+        push_status(hostname, token, output_entity_id, "unknown")
         sys.exit(0)
 
     window_readings = ingest.build_prediction_window(
@@ -96,6 +144,7 @@ def main():
         # Distinct exit code from env/fetch failures so the scheduler
         # can tell "no data" apart from "stale or gappy data"
         # (PROJECT.md open issue 1).
+        push_status(hostname, token, output_entity_id, "unknown")
         sys.exit(2)  # will be "unknown" state for the target entity
 
     write_csv(window_readings, CSV_OUTPUT_PATH)
@@ -107,9 +156,11 @@ def main():
         )
     except FileNotFoundError as exc:
         log.error("%s", exc)
+        push_status(hostname, token, output_entity_id, "unknown")
         sys.exit(3)
     except process.PredictionError as exc:
         log.error("%s", exc)
+        push_status(hostname, token, output_entity_id, "unknown")
         sys.exit(3)
 
     log.info(
@@ -119,6 +170,14 @@ def main():
         based_on,
         process.PREDICTION_OUTPUT_PATH,
     )
+
+    # Here, unlike the earlier branches, the push IS the last remaining
+    # step - if it fails, the whole cycle should be reported as failed
+    # even though the prediction itself succeeded, or a scheduler
+    # watching only the exit code would believe HA was updated when it
+    # was not.
+    if not push_status(hostname, token, output_entity_id, value):
+        sys.exit(4)
 
 
 if __name__ == "__main__":
