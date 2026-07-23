@@ -178,6 +178,12 @@ def main():
     # was not.
     if not push_status(hostname, token, output_entity_id, value):
         sys.exit(4)
+    
+    import resource
+
+    peak_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    with open("/app/out/mem_usage.log", "a") as f:
+        f.write(f"{peak_kb / 1024:.1f} MB\n")
 
 
 if __name__ == "__main__":
