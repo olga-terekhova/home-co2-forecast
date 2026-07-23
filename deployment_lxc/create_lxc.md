@@ -21,5 +21,5 @@ pct create {numeric ID} local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst \
   --memory 512 \
   --swap 512 \
   --rootfs local-lvm:8 \
-  --net0 name=eth0,bridge=vmbr0,ip=dhcp \
+  --net0 name=eth0,bridge=vmbr0,ip=dhcp,tag=10 \
   --features nesting=0
